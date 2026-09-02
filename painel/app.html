@@ -101,6 +101,25 @@ section{background:var(--panel); padding:11px 14px 14px; min-width:0}
   border:none; box-shadow:none; font-family:var(--mono); font-size:10.5px}
 .leaflet-tooltip:before{display:none}
 
+/* Matriz 2x2. O eixo vertical é estrutural e não muda com o mês; o
+   horizontal é a seca corrente e muda. A célula que importa é a de
+   baixo à direita — estrutura apertada E seca ao mesmo tempo. */
+#matriz{display:grid; grid-template-columns:auto 1fr 1fr; gap:1px;
+  background:var(--rule-soft); border:1px solid var(--rule-soft)}
+.mcel{background:var(--panel); padding:7px 9px; min-height:66px}
+.mcel .acao{font-family:var(--mono); font-size:9px; letter-spacing:.1em;
+  text-transform:uppercase; color:var(--muted)}
+.mcel .qt{font-family:var(--disp); font-size:22px; font-weight:700;
+  line-height:1.15}
+.mcel .quem{font-size:11px; color:var(--ink-2); line-height:1.35}
+.mcel.critica{background:color-mix(in srgb,var(--hot) 11%,var(--panel))}
+.mcel.critica .acao{color:var(--hot)}
+.meixo{background:var(--panel); padding:6px 8px; display:flex;
+  align-items:center; font-family:var(--mono); font-size:9px;
+  letter-spacing:.09em; text-transform:uppercase; color:var(--muted)}
+.meixo.vert{writing-mode:vertical-rl; transform:rotate(180deg);
+  justify-content:center}
+
 #ufc{width:100%; display:block}
 table{width:100%; border-collapse:collapse; font-size:12.5px}
 th{font-family:var(--mono); font-size:9.5px; letter-spacing:.1em;
@@ -145,7 +164,13 @@ tr.alerta td{background:color-mix(in srgb,var(--hot) 8%,transparent)}
   </section>
 
   <section>
-    <div class="cab"><h2>Ativos</h2><span class="mono" id="atsub"></span></div>
+    <div class="cab"><h2>Seca × estresse hídrico</h2>
+      <span class="mono" id="matsub"></span></div>
+    <div id="matriz"></div>
+    <p class="nota" id="notaMat"></p>
+
+    <div class="cab" style="margin-top:16px"><h2>Ativos</h2>
+      <span class="mono" id="atsub"></span></div>
     <table id="tab"></table>
 
     <div class="cab" style="margin-top:16px"><h2>Estados</h2>
@@ -160,6 +185,12 @@ tr.alerta td{background:color-mix(in srgb,var(--hot) 8%,transparent)}
 const D = JSON.parse(document.getElementById('dados').textContent);
 const CL = D.classes, NC = CL.length, ESC = D.meta.escala;
 const MES = D.meta.meses, NM = MES.length;
+/* Classes do eixo estrutural. Declaradas aqui, no topo, porque as
+   camadas do mapa as consultam bem antes da seção da matriz — e
+   `const` num escopo posterior deixaria a referência em zona morta
+   temporal, derrubando o painel inteiro antes do primeiro desenho. */
+const CE = D.classes_estrut || [], LIME = D.limiar_estrut;
+const clsEstrut = n => CE.find(c => c.n === n);
 const NOMEMES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
 let mi = NM - 1, ufSel = null;
 
@@ -269,6 +300,7 @@ function desenhaSeca(){
     }).bindTooltip(CL[c.c].rotulo, {sticky:true});
     p.addTo(camadaSeca); polSeca.push(p);
   }
+  camadaBacia.eachLayer(l => l.bringToFront());
   camadaUF.eachLayer(l => l.bringToFront());
   camadaAtivos.eachLayer(l => l.bringToFront());
 }
@@ -300,8 +332,47 @@ function estilizaAtivos(){
   }
 }
 
+/* Ottobacia de cada ativo: a microbacia de que ele depende, do
+   balanço quantitativo da ANA. Vem uma por ativo, não o entorno —
+   uma caixa de meio grau em São Paulo traria 10.682 microbacias.
+   Fica ligada, porque é a geometria da decisão. */
+const camadaBacia = L.layerGroup().addTo(mapa);
+for(const a of D.ativos){
+  if(!a.e || !a.e.anel) continue;
+  const c = clsEstrut(a.e.n);
+  L.polygon(a.e.anel.map(p => [p[1], p[0]]), {
+    color: c ? c.cor : '#c9c6bb', weight:1.6,
+    fillColor: c ? c.cor : '#c9c6bb', fillOpacity:0.45, dashArray: c ? null : '3,3',
+  }).bindTooltip(`${a.nome} — ottobacia ${a.e.cobacia}<br>`
+      + (c ? `${c.rotulo} · ${a.e.pc.toFixed(2)}% de consumo`
+           : 'sem informação no balanço'), {sticky:true})
+    .addTo(camadaBacia);
+}
+
+/* Contexto regional do estresse, servido pelo próprio SNIRH.
+   Opcional e desligado, como a base cartográfica: é requisição a um
+   terceiro feita pelo navegador de quem abre o arquivo. O ArcGIS não
+   publica cache de azulejo aqui, então cada quadro é um `export`
+   recortado pela caixa do azulejo. */
+const EstresseSNIRH = L.TileLayer.extend({
+  getTileUrl: function(c){
+    const n = this._tileCoordsToNwSe(c), p = this.options;
+    const a = mapa.options.crs.project(n[0]), b = mapa.options.crs.project(n[1]);
+    return p.base + '/export?bbox=' + [a.x, b.y, b.x, a.y].join(',')
+      + '&bboxSR=3857&imageSR=3857&size=256,256&layers=show:1'
+      + '&format=png32&transparent=true&dpi=96&f=image';
+  }
+});
+const estresseRede = new EstresseSNIRH('', {
+  base: D.meta.bh_servico, opacity:0.65, maxZoom:10,
+  attribution:'Balanço hídrico quantitativo — ANA/SNIRH',
+});
+
 L.control.layers(null, {
-  'Seca': camadaSeca, 'Estados': camadaUF, 'Ativos': camadaAtivos,
+  'Seca (mês)': camadaSeca,
+  'Ottobacia do ativo': camadaBacia,
+  'Estresse regional (rede)': estresseRede,
+  'Estados': camadaUF, 'Ativos': camadaAtivos,
   'Base cartográfica (rede)': base,
 }, {collapsed:false, position:'topright'}).addTo(mapa);
 
@@ -407,9 +478,67 @@ function desenhaUF(){
   };
 }
 
+/* ---------------- matriz seca x estresse ---------------- */
+/* Um ativo só entra na matriz se tiver os DOIS eixos. Sem valor no
+   balanço, ele não é "estresse baixo" — é desconhecido, e empurrá-lo
+   para a linha de baixo esconderia o que falta saber. Os que faltam
+   aparecem contados fora da grade. */
+function eixos(a){
+  const s = a.s[mi];
+  const e = a.e && a.e.n;
+  if(s < 0 || e == null) return null;
+  return {seca: s >= D.limiar_alerta, estresse: e >= LIME};
+}
+
+function matriz(){
+  const cel = [[[],[]],[[],[]]];       // [estresse][seca]
+  const fora = [];
+  for(const a of D.ativos){
+    const x = eixos(a);
+    if(!x){ fora.push(a); continue; }
+    cel[x.estresse ? 1 : 0][x.seca ? 1 : 0].push(a);
+  }
+  const acao = [['monitorar','contingência'],['investimento','prioridade máxima']];
+  const nomes = l => l.length ? l.map(a => a.nome.replace(/^Unidade /,'')).join(', ') : '—';
+
+  /* O rótulo da coluna diz o limiar em vez de "em seca". O indicador
+     do topo conta S0 ou pior como seca; a matriz corta em S1, porque
+     S0 é "anormalmente seco" e não sustenta contingência. Dois
+     limiares legítimos com o mesmo nome confundiriam quem lê. */
+  const rotS = [`até S${D.limiar_alerta - 2}`, `S${D.limiar_alerta - 1} ou pior`];
+  let h = `<div class="meixo"></div>
+           <div class="meixo">${rotS[0]}</div><div class="meixo">${rotS[1]}</div>`;
+  for(let e=0; e<2; e++){
+    h += `<div class="meixo vert">estresse ${e ? 'alto' : 'baixo'}</div>`;
+    for(let s=0; s<2; s++){
+      const l = cel[e][s], crit = (e===1 && s===1);
+      h += `<div class="mcel ${crit && l.length ? 'critica' : ''}">
+              <div class="acao">${acao[e][s]}</div>
+              <div class="qt">${l.length}</div>
+              <div class="quem">${nomes(l)}</div></div>`;
+    }
+  }
+  document.getElementById('matriz').innerHTML = h;
+  document.getElementById('matsub').textContent =
+    `seca em ${rotuloMes(MES[mi])} · estresse estrutural (ANA, 2014)`;
+
+  const semInfo = fora.filter(a => a.e && a.e.sentinela).length;
+  const semEixo = fora.length - semInfo;
+  const p = [];
+  if(semInfo) p.push(`${semInfo} ativo(s) em microbacia sem informação no `
+    + `balanço — o campo traz o código 65535, que é ausência, não consumo`);
+  if(semEixo) p.push(`${semEixo} ativo(s) sem um dos dois eixos neste mês`);
+  document.getElementById('notaMat').textContent = p.length
+    ? p.join('. ') + '. Ficam fora da grade de propósito: sem os dois eixos '
+      + 'não há célula que os descreva.'
+    : 'Os dois eixos são independentes e não se somam: seca é anomalia do mês, '
+      + 'estresse é razão estrutural entre demanda e disponibilidade.';
+}
+
 /* ---------------- ativos ---------------- */
 function tabela(){
-  let html = '<tr><th>Ativo</th><th>UF</th><th>Classe</th><th>Desde</th></tr>';
+  let html = '<tr><th>Ativo</th><th>UF</th><th>Seca</th>'
+           + '<th>Desde</th><th>Estresse</th></tr>';
   const ats = D.ativos.slice().sort((p,q) => q.s[mi] - p.s[mi]);
   for(const a of ats){
     const n = a.s[mi];
@@ -427,10 +556,22 @@ function tabela(){
     const rot = n < 0 ? 'fora do mapa' : CL[n].rotulo;
     const cls = [n >= D.limiar_alerta ? 'alerta' : '',
                  ufSel === a.uf ? 'sel' : ''].join(' ');
+    /* A pastilha de estresse mostra o VALOR junto da classe. O campo
+       vai de 0 a 373.185%, e classe sem número esconde a diferença
+       entre 41% e 967% — que são a mesma "muito crítica" e situações
+       muito diferentes. */
+    const e = a.e, ce = e && clsEstrut(e.n);
+    const estE = ce
+      ? `background:${ce.cor};color:${tinta(ce.cor)}`
+      : 'background:transparent;border-style:dashed;color:var(--muted)';
+    const rotE = ce
+      ? `${ce.rotulo} · ${e.pc >= 100 ? Math.round(e.pc) : e.pc.toFixed(1)}%`
+      : (e ? (e.sentinela ? 'sem informação' : e.rotulo) : '—');
     html += `<tr class="${cls}" data-id="${a.id}">
       <td>${a.nome}</td><td class="n">${a.uf}</td>
       <td><span class="pil" style="${est}">${rot}</span></td>
-      <td class="n">${meses} ${meses>1?'meses':'mês'}</td></tr>`;
+      <td class="n">${meses} ${meses>1?'meses':'mês'}</td>
+      <td><span class="pil" style="${estE}">${rotE}</span></td></tr>`;
   }
   const t = document.getElementById('tab');
   t.innerHTML = html;
@@ -487,7 +628,7 @@ function atualiza(){
     color: ufSel === u ? css('--ink') : css('--rule'),
     weight: ufSel === u ? 2.2 : 0.8,
   });
-  desenhaTempo(); desenhaUF(); tabela(); kpis();
+  desenhaTempo(); desenhaUF(); matriz(); tabela(); kpis();
 }
 
 function vaiPara(m){ mi = Math.max(0, Math.min(NM-1, m)); atualiza(); }
@@ -508,10 +649,22 @@ document.getElementById('reset').onclick = () => {
   ufSel = null; enquadra(true); atualiza();
 };
 
-document.getElementById('leg').innerHTML = CL.map(c =>
-  `<span class="lg"><span class="sw" style="background:${c.cor}"></span>${c.rotulo}</span>`
-).join('') + `<span class="lg"><span class="sw" style="background:transparent;
-  border-style:dashed"></span>ativo fora da área monitorada</span>`;
+/* Duas legendas separadas por uma quebra, e não uma fila só: são
+   eixos distintos, e enfileirá-los sugeriria uma escala contínua de
+   "sem seca" a "muito crítica" que não existe. */
+document.getElementById('leg').innerHTML =
+  `<span class="lg mono" style="width:100%">seca do mês</span>`
+  + CL.map(c => `<span class="lg"><span class="sw"
+      style="background:${c.cor}"></span>${c.rotulo}</span>`).join('')
+  + `<span class="lg"><span class="sw" style="background:transparent;
+      border-style:dashed"></span>ativo fora da área monitorada</span>`
+  + `<span class="lg mono" style="width:100%;margin-top:4px">estresse
+      estrutural — consumo sobre disponibilidade (ANA, 2014)</span>`
+  + CE.map(c => `<span class="lg"><span class="sw"
+      style="background:${c.cor}"></span>${c.rotulo}`
+      + (c.ate ? ` (${c.de}–${c.ate}%)` : ` (>${c.de}%)`) + `</span>`).join('')
+  + `<span class="lg"><span class="sw" style="background:transparent;
+      border-style:dashed"></span>sem informação no balanço</span>`;
 document.getElementById('fonte').textContent = D.meta.fonte;
 document.getElementById('stamp').textContent =
   'gerado ' + D.meta.gerado_em.slice(0,10) + ' · ' + NM + ' meses';

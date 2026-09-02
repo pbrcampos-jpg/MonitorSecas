@@ -18,6 +18,7 @@ mostraria justamente o ícone que falta.
 
 O HTML montado é artefato de construção e não é versionado.
 """
+import zipfile
 from pathlib import Path
 import sys
 
@@ -42,4 +43,16 @@ for marca, txt in partes.items():
 
 saida = C.DIR_SAIDA / "painel_seca.html"
 saida.write_text(html, encoding="utf-8")
-print(f"{saida}: {saida.stat().st_size / 1e6:.1f} MB")
+print(f"{saida.name}: {saida.stat().st_size / 1e6:.2f} MB")
+
+# Versão para envio. O painel é quase todo coordenada em texto, que
+# comprime a um sexto — 6,2 MB viram menos de 1 MB, abaixo do limite
+# de anexo da maioria dos servidores corporativos, que costuma ser 10
+# ou 25 MB mas conta o acréscimo de 33% da codificação base64 do
+# e-mail. ZIP e não 7z ou rar: abre com clique duplo no Windows, no
+# macOS e no Linux, sem instalar nada.
+zipado = C.DIR_SAIDA / "painel_seca.zip"
+with zipfile.ZipFile(zipado, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
+    z.write(saida, arcname=saida.name)
+print(f"{zipado.name}: {zipado.stat().st_size / 1e6:.2f} MB  "
+      f"({100 * zipado.stat().st_size / saida.stat().st_size:.0f}% do original)")

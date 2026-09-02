@@ -109,6 +109,21 @@ BH_CLASSES = [
     (40.0, float("inf"), 5, "muito crítica"),
 ]
 
+# SENTINELA DE AUSÊNCIA, DISFARÇADA DE MEDIDA.
+#
+# 65535 é 2^16 - 1. Contado no próprio serviço: 2.210 feições têm
+# PCCONSUMO exatamente 65535, enquanto a faixa inteira de 60.000 a
+# 70.000 tem 21 feições fora esse valor. Um pico de 105x num único
+# número, numa faixa por onde a distribuição mal passa, não é medida —
+# é código de "sem informação" gravado num campo numérico.
+#
+# Sem tratar, o ativo cai em "muito crítica" e sobe ao topo do painel
+# como o mais estressado do conjunto, sobre um valor que não existe.
+# São 0,4% da base, e bastou isso para atingir 1 dos 10 pontos de
+# ensaio. `PCCONSUMO IS NULL` não pega nenhum: a ausência só se
+# manifesta assim.
+BH_SENTINELA = 65535.0
+
 BH_LIMIAR_ALERTA = 3        # preocupante ou pior
 
 # ---------------------------------------------------------------

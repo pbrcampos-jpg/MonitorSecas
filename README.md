@@ -71,13 +71,25 @@ pedidas: contagem de ativos em seca, classificação por severidade e
 mudanças de classe entre meses.
 
 ```bash
+python fonte_balanco_hidrico.py --ativos exemplo_ativos.csv
+```
+
+Consulta o balanço hídrico quantitativo da ANA e devolve, para cada
+ativo, a microbacia ottocodificada que o contém, a razão consumo /
+disponibilidade e a classe estrutural. A pergunta vai ao próprio
+serviço do balanço, por geometria — nunca por junção de `COBACIA`,
+que cruzaria a ottocodificação de 2013 com a de 2017.
+
+```bash
 python exportar_painel.py
 python painel/montar.py
 ```
 
-Gera o painel: um HTML de 6 MB, autocontido, com mapa Leaflet, cursor
-temporal sobre os 145 meses, indicadores, comparativo por estado e
-tabela de ativos. O mapa acompanha o mês selecionado no cursor.
+Gera o painel: um HTML de 6,2 MB, autocontido, com mapa Leaflet,
+cursor temporal sobre os 145 meses, indicadores, **matriz 2×2 de seca
+× estresse**, comparativo por estado e tabela de ativos. O mapa
+acompanha o mês selecionado no cursor. Sai também `painel_seca.zip`,
+com 0,97 MB — 16% do original — para envio por e-mail.
 
 Os dados ficam **fora do repositório**. `MONITOR_RAIZ` aponta o
 diretório de trabalho; sem a variável, usa-se `dados/` ao lado do
@@ -95,6 +107,7 @@ fonte_monitor_secas.py   catálogo + balde S3 + manifesto imutável
 seca_camada.py           leitura normalizada e atribuição a pontos
 conferir_secas.py        auditoria mensal da série
 atribuir_ativos.py       métricas e mudanças de classe por ativo
+fonte_balanco_hidrico.py estresse estrutural por ativo (ANA/SNIRH)
 exportar_painel.py       agregação por grade equivalente-área
 painel/app.html          gabarito do painel
 painel/montar.py         embute dados e Leaflet num arquivo só
@@ -123,10 +136,10 @@ diferença** na extensão e no máximo 1,7% em qualquer classe acima de
 |---|---|
 | 0 — definição | **aguarda o cliente**: quantos ativos, quais estados, qual decisão, qual cadência |
 | 1 — malha espacial | pendente (ottobacias) |
-| 2 — dados oficiais | **Monitor de Secas concluído e conferido**; balanço hídrico levantado; órgãos estaduais não iniciados |
+| 2 — dados oficiais | **Monitor de Secas e balanço hídrico concluídos**; órgãos estaduais não iniciados |
 | 3 — camada complementar | pendente (SPEI, CHIRPS, ERA5-Land) |
-| 4 — motor de atribuição | **concluído para a camada de seca** |
-| 5 — módulo visual | **concluído para a camada de seca**: mapa, cursor temporal, KPIs e comparativo por estado |
+| 4 — motor de atribuição | **concluído nos dois eixos** |
+| 5 — módulo visual | **concluído**: mapa, cursor temporal, KPIs, matriz 2×2 e comparativo por estado |
 | 6 — operação | parcial: manifesto e detecção de mudança prontos; falta agendamento e alerta |
 
 A base de ativos ainda não existe — `exemplo_ativos.csv` é um

@@ -53,6 +53,7 @@ import shapely
 
 import atribuir_ativos as A
 import config as C
+import fonte_balanco_hidrico
 import fonte_monitor_secas as F
 import seca_camada as S
 
@@ -68,6 +69,30 @@ CORES = {
     "si": "#f2f2f0", "s0": "#ffff00", "s1": "#fcd37f",
     "s2": "#ffaa00", "s3": "#e60000", "s4": "#730000",
 }
+
+# Paleta do estresse estrutural. DELIBERADAMENTE em outra família —
+# azul-esverdeado para roxo, não amarelo para vermelho. Os dois eixos
+# não se somam, e paleta parecida convidaria a lê-los como se
+# fossem o mesmo tipo de coisa em intensidades diferentes.
+CORES_ESTRUT = {
+    1: "#d9f0ea", 2: "#9ed8c8", 3: "#6ba8bd",
+    4: "#4a6fa5", 5: "#3d3a7a",
+}
+COR_SEM_INFO = "#c9c6bb"
+
+
+def _estrut(reg):
+    """Registro de estresse do ativo, enxuto para o painel."""
+    if not reg:
+        return None
+    return {
+        "cobacia": reg.get("cobacia"),
+        "pc": reg.get("pcconsumo"),
+        "n": reg.get("classe"),
+        "rotulo": reg.get("rotulo"),
+        "sentinela": bool(reg.get("sentinela")),
+        "anel": reg.get("anel"),
+    }
 
 
 def malha_uf():
@@ -198,6 +223,15 @@ def main():
         if n % 24 == 0 or n == len(chaves):
             print(f"  {n}/{len(chaves)}  {chave}")
 
+    # --- camada estrutural, uma consulta já feita e em cache
+    estrut = {}
+    if fonte_balanco_hidrico.CACHE.exists():
+        estrut = json.loads(
+            fonte_balanco_hidrico.CACHE.read_text(encoding="utf-8"))
+        print(f"  estresse estrutural: {len(estrut)} ativos em cache")
+    else:
+        print("  SEM camada estrutural — rode fonte_balanco_hidrico.py")
+
     bbox = [float(x) for x in ufs.total_bounds]
     saida = {
         "meta": {
@@ -208,6 +242,7 @@ def main():
             "passo_km": PASSO_KM,
             "tolerancia_grau": TOL,
             "fonte": "Monitor de Secas (ANA e parceiros)",
+            "bh_servico": C.BH_QUANT.rsplit("/", 1)[0],
         },
         "classes": [{"k": c, "n": C.SECA_CLASSES[c][0],
                      "rotulo": C.SECA_CLASSES[c][1], "cor": CORES[c]}
@@ -217,12 +252,22 @@ def main():
         "nacional": nac,
         "uf": {u: {"nome": ufs.set_index("uf").nome[u], "km2": por_uf[u]}
                for u in ufs.uf},
+        # Classes do estresse estrutural. Ficam separadas das de seca
+        # de propósito: são eixos diferentes, e uma paleta comum
+        # convidaria a somar os dois num número só.
+        "classes_estrut": [{"n": n, "rotulo": rot, "cor": CORES_ESTRUT[n],
+                            "de": lo, "ate": (None if hi == float("inf") else hi)}
+                           for lo, hi, n, rot in C.BH_CLASSES],
+        "limiar_estrut": C.BH_LIMIAR_ALERTA,
+        "estrut_versao": next((v.get("versao") for v in estrut.values()
+                               if v.get("versao")), None),
         "ativos": [{"id": str(r.ativo),
                     "nome": str(r.get("nome", r.ativo)),
                     "uf": str(r.get("uf", "")),
                     "lon": round(float(r.geometry.x), 4),
                     "lat": round(float(r.geometry.y), 4),
-                    "s": por_ativo[str(r.ativo)]}
+                    "s": por_ativo[str(r.ativo)],
+                    "e": _estrut(estrut.get(str(r.ativo)))}
                    for _, r in ativos.iterrows()],
         "contorno": [{"uf": r.uf, "r": _aneis(
             shapely.set_precision(r.geometry.simplify(TOL), GRADE_COORD))}

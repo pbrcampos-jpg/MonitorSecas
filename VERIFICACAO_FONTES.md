@@ -99,10 +99,43 @@ estresse hídrico estrutural.
    entre bases de anos diferentes devolve linha vazia ou, pior, linha
    errada — sem erro.
 
-**Faixa dos valores.** `PCCONSUMO` vai de 0 a **373.185%**. O extremo
-é uma cabeceira minúscula com retirada desproporcional. Escala linear
-em mapa é inútil; a classificação da ANA (excelente / confortável /
-preocupante / crítica / muito crítica) está em `config.py`.
+**Faixa dos valores.** `PCCONSUMO` vai de 0 a **373.185%**. Escala
+linear em mapa é inútil; a classificação da ANA (excelente /
+confortável / preocupante / crítica / muito crítica) está em
+`config.py`.
+
+### Um sentinela disfarçado de medida
+
+**2.210 feições têm `PCCONSUMO` exatamente 65535** — que é 2¹⁶ − 1.
+A faixa inteira de 60.000 a 70.000 tem **21 feições** fora esse valor.
+Um pico de 105× num único número, numa faixa por onde a distribuição
+mal passa, não é medida: é código de "sem informação" gravado num
+campo numérico. `PCCONSUMO IS NULL` não devolve nenhum registro — a
+ausência só se manifesta assim.
+
+São 0,4% da base, e bastou isso para atingir **1 dos 10 pontos de
+ensaio**. Sem tratar, o ativo entra como "muito crítica" e sobe ao
+topo do painel como o mais estressado do conjunto, sobre um valor que
+não existe. O módulo o registra como ausência e o mantém **fora da
+matriz 2×2** — sem os dois eixos não há célula que o descreva.
+
+### Acesso, e por que a junção é por geometria
+
+O serviço aceita consulta espacial por ponto e devolve a microbacia
+que o contém, com geometria — o que dispensa baixar as 558.699
+feições e, mais importante, **evita a junção por código**. Atribuir o
+ativo à ottobacia da BHO 2017 e depois juntar ao balanço por
+`COBACIA` cruzaria duas ottocodificações diferentes: o mesmo código
+não designa a mesma bacia nas duas bases, e o resultado é linha vazia
+ou linha errada, sem exceção. Perguntando ao próprio serviço do
+balanço, a codificação é a dele de ponta a ponta e o código volta
+como informação, não como chave.
+
+O contexto regional sai do `export` do próprio MapServer, que
+responde PNG por caixa (a extensão WMS está declarada mas o
+`GetCapabilities` devolve 400).
+
+---
 
 ---
 
@@ -119,8 +152,6 @@ por geometria. A metade da demanda que o roteiro pedia está acessível.
 Não foram inventariadas em profundidade nesta rodada — a prioridade
 era destravar a camada de seca.
 
----
-
 ## 4. Órgãos estaduais
 
 **Não verificado.** Depende de saber quais estados entram, que é a
@@ -129,10 +160,12 @@ projeto e o único da seção 5 que continua em aberto.
 
 ---
 
-## Quatro achados que teriam virado erro silencioso
+## Cinco achados que teriam virado erro silencioso
 
 Todos foram encontrados por conferência, não por exceção. Nenhum
-levantava erro; todos produziam número plausível.
+levantava erro; todos produziam número plausível. O quinto é o
+sentinela 65535 do balanço, descrito na seção 2; os quatro abaixo
+são da camada de seca.
 
 ### 1. O nome do arquivo não é derivável
 
