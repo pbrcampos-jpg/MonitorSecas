@@ -70,6 +70,15 @@ Atribui a classe de seca a cada ativo, mês a mês, e emite as métricas
 pedidas: contagem de ativos em seca, classificação por severidade e
 mudanças de classe entre meses.
 
+```bash
+python exportar_painel.py
+python painel/montar.py
+```
+
+Gera o painel: um HTML de 6 MB, autocontido, com mapa Leaflet, cursor
+temporal sobre os 145 meses, indicadores, comparativo por estado e
+tabela de ativos. O mapa acompanha o mês selecionado no cursor.
+
 Os dados ficam **fora do repositório**. `MONITOR_RAIZ` aponta o
 diretório de trabalho; sem a variável, usa-se `dados/` ao lado do
 código.
@@ -86,8 +95,25 @@ fonte_monitor_secas.py   catálogo + balde S3 + manifesto imutável
 seca_camada.py           leitura normalizada e atribuição a pontos
 conferir_secas.py        auditoria mensal da série
 atribuir_ativos.py       métricas e mudanças de classe por ativo
+exportar_painel.py       agregação por grade equivalente-área
+painel/app.html          gabarito do painel
+painel/montar.py         embute dados e Leaflet num arquivo só
 VERIFICACAO_FONTES.md    o que se encontrou em cada portal oficial
 ```
+
+**Sobre o painel.** O Leaflet vai embutido no HTML, não vem de CDN:
+puxado da rede, o mapa ficaria em branco em qualquer máquina sem
+internet ou atrás de proxy — e sem erro visível para quem abre o
+arquivo. A base cartográfica de azulejos existe como camada opcional
+e **desligada por padrão**, porque ligá-la faz o navegador de quem
+abre pedir imagem a um terceiro; os contornos estaduais já orientam
+a leitura.
+
+A agregação por estado usa uma grade equivalente-área de 10 km em
+EPSG:5880, não interseção de polígono. Conferido contra a medida
+independente por polígono de `conferir_secas.py`: **0,014% de
+diferença** na extensão e no máximo 1,7% em qualquer classe acima de
+20 mil km².
 
 ---
 
@@ -100,7 +126,7 @@ VERIFICACAO_FONTES.md    o que se encontrou em cada portal oficial
 | 2 — dados oficiais | **Monitor de Secas concluído e conferido**; balanço hídrico levantado; órgãos estaduais não iniciados |
 | 3 — camada complementar | pendente (SPEI, CHIRPS, ERA5-Land) |
 | 4 — motor de atribuição | **concluído para a camada de seca** |
-| 5 — módulo visual | pendente |
+| 5 — módulo visual | **concluído para a camada de seca**: mapa, cursor temporal, KPIs e comparativo por estado |
 | 6 — operação | parcial: manifesto e detecção de mudança prontos; falta agendamento e alerta |
 
 A base de ativos ainda não existe — `exemplo_ativos.csv` é um

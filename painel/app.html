@@ -1,0 +1,526 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Monitor de Seca — Ativos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500&family=Barlow:wght@400;500&display=swap">
+
+<style>__LEAFLET_CSS__</style>
+
+<style>
+:root{
+  --ground:#EFEDE4; --panel:#F5F3EC; --sunken:#E5E2D6;
+  --rule:#CFCBBB; --rule-soft:#DEDBCE;
+  --ink:#1A1815; --ink-2:#4A473E; --muted:#7C7869;
+  --hot:#8E1B4E; --warm:#B0442A; --cool:#1D3E72;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  --disp:"Archivo","Barlow",system-ui,sans-serif;
+  --body:"Barlow",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#14130F; --panel:#1B1A15; --sunken:#100F0C;
+    --rule:#3A382E; --rule-soft:#2A2823;
+    --ink:#EDEAE0; --ink-2:#BAB6A8; --muted:#8B8776;
+    --hot:#E4407F; --warm:#E0714A; --cool:#6E9BD8;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#14130F; --panel:#1B1A15; --sunken:#100F0C;
+  --rule:#3A382E; --rule-soft:#2A2823;
+  --ink:#EDEAE0; --ink-2:#BAB6A8; --muted:#8B8776;
+  --hot:#E4407F; --warm:#E0714A; --cool:#6E9BD8;
+}
+*{box-sizing:border-box}
+body{margin:0; background:var(--ground); color:var(--ink);
+  font-family:var(--body); font-size:14px; line-height:1.5;
+  -webkit-font-smoothing:antialiased}
+.mono{font-family:var(--mono); font-size:10px; letter-spacing:.1em;
+  text-transform:uppercase; color:var(--muted)}
+h1,h2{font-family:var(--disp); margin:0}
+
+#topo{position:sticky; top:0; z-index:1200; background:var(--panel);
+  box-shadow:0 6px 12px -10px rgba(0,0,0,.5)}
+#rail{display:flex; flex-wrap:wrap; align-items:baseline; gap:2px 14px;
+  padding:8px 14px; border-bottom:1px solid var(--rule)}
+#rail h1{font-size:15px; font-weight:800; letter-spacing:-.01em}
+#stamp{margin-left:auto}
+#tempo{padding:6px 14px 8px; border-bottom:1px solid var(--rule)}
+#tcanvas{width:100%; height:104px; display:block; cursor:ew-resize;
+  touch-action:none}
+.tlbl{display:flex; justify-content:space-between; align-items:baseline;
+  gap:10px; margin-bottom:2px}
+#mesAtual{font-family:var(--disp); font-size:17px; font-weight:700}
+
+#kpis{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+  gap:1px; background:var(--rule-soft); border-bottom:1px solid var(--rule)}
+.kpi{background:var(--panel); padding:9px 13px}
+.kpi .v{font-family:var(--disp); font-size:25px; font-weight:700;
+  line-height:1.1; letter-spacing:-.02em}
+.kpi .s{font-size:11.5px; color:var(--muted)}
+
+#corpo{display:grid; grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);
+  gap:1px; background:var(--rule-soft)}
+@media (max-width:900px){#corpo{grid-template-columns:1fr}}
+section{background:var(--panel); padding:11px 14px 14px; min-width:0}
+.cab{display:flex; align-items:baseline; gap:9px; margin-bottom:7px}
+.cab h2{font-size:12.5px; font-weight:700; letter-spacing:.01em}
+
+#map{height:540px; background:var(--sunken);
+  border:1px solid var(--rule-soft); z-index:1}
+@media (max-width:900px){#map{height:400px}}
+#leg{display:flex; flex-wrap:wrap; gap:3px 13px; margin-top:7px}
+.lg{display:flex; align-items:center; gap:5px; font-size:11.5px}
+.sw{width:15px; height:11px; border:1px solid var(--rule)}
+.btn{font-family:var(--mono); font-size:9.5px; letter-spacing:.08em;
+  text-transform:uppercase; padding:3px 7px; cursor:pointer;
+  background:none; border:1px solid var(--rule); color:var(--ink-2);
+  border-radius:2px}
+.btn:hover{color:var(--ink); border-color:var(--ink-2)}
+
+/* Leaflet vestido com a paleta do painel. O controle de camadas fica
+   aberto de propósito: fechado, o Leaflet usa um PNG que não existe
+   neste arquivo — e um ícone quebrado num relatório é pior que uma
+   lista visível. */
+.leaflet-container{background:var(--sunken); font-family:var(--body);
+  font-size:12px}
+.leaflet-control-layers, .leaflet-bar a, .leaflet-control-attribution{
+  background:var(--panel); color:var(--ink);
+  border:1px solid var(--rule) !important; box-shadow:none}
+.leaflet-bar a{color:var(--ink)}
+.leaflet-bar a:hover{background:var(--sunken); color:var(--ink)}
+.leaflet-control-layers-expanded{padding:7px 9px; font-size:12px}
+.leaflet-control-layers label{display:block; margin:2px 0}
+.leaflet-control-attribution{font-size:10px; color:var(--muted)}
+.leaflet-popup-content-wrapper, .leaflet-popup-tip{
+  background:var(--panel); color:var(--ink); border:1px solid var(--rule);
+  box-shadow:0 3px 10px -6px rgba(0,0,0,.6)}
+.leaflet-popup-content{margin:8px 11px; font-size:12.5px}
+.leaflet-popup-content b{font-family:var(--disp)}
+.leaflet-tooltip{background:var(--ink); color:var(--ground);
+  border:none; box-shadow:none; font-family:var(--mono); font-size:10.5px}
+.leaflet-tooltip:before{display:none}
+
+#ufc{width:100%; display:block}
+table{width:100%; border-collapse:collapse; font-size:12.5px}
+th{font-family:var(--mono); font-size:9.5px; letter-spacing:.1em;
+  text-transform:uppercase; color:var(--muted); text-align:left;
+  font-weight:400; padding:3px 6px 3px 0; border-bottom:1px solid var(--rule)}
+td{padding:4px 6px 4px 0; border-bottom:1px solid var(--rule-soft)}
+td.n{font-family:var(--mono); font-size:11.5px}
+tr.sel td{background:color-mix(in srgb,var(--cool) 12%,transparent)}
+.pil{display:inline-block; padding:1px 6px; border-radius:2px;
+  font-family:var(--mono); font-size:10px; border:1px solid var(--rule)}
+tr.alerta td{background:color-mix(in srgb,var(--hot) 8%,transparent)}
+.nota{font-size:12px; color:var(--muted); margin-top:8px;
+  border-left:2px solid var(--rule); padding-left:9px}
+</style>
+
+<div id="topo">
+  <div id="rail">
+    <h1>Monitor de Seca — Ativos</h1>
+    <span class="mono" id="fonte"></span>
+    <span class="mono" id="stamp"></span>
+  </div>
+  <div id="tempo">
+    <div class="tlbl">
+      <span id="mesAtual">—</span>
+      <span class="mono">área monitorada e composição por severidade &nbsp;·&nbsp; arraste ou use ← →</span>
+    </div>
+    <canvas id="tcanvas"></canvas>
+  </div>
+</div>
+
+<div id="kpis"></div>
+
+<div id="corpo">
+  <section>
+    <div class="cab"><h2>Mapa</h2>
+      <span class="mono" id="mapsub"></span>
+      <button class="btn" id="reset" style="margin-left:auto">reenquadrar</button>
+    </div>
+    <div id="map"></div>
+    <div id="leg"></div>
+    <p class="nota" id="notaExt"></p>
+  </section>
+
+  <section>
+    <div class="cab"><h2>Ativos</h2><span class="mono" id="atsub"></span></div>
+    <table id="tab"></table>
+
+    <div class="cab" style="margin-top:16px"><h2>Estados</h2>
+      <span class="mono">% da área do estado sob seca (S0 ou pior)</span></div>
+    <canvas id="ufc"></canvas>
+  </section>
+</div>
+
+<script>__LEAFLET_JS__</script>
+<script id="dados" type="application/json">__DADOS__</script>
+<script>
+const D = JSON.parse(document.getElementById('dados').textContent);
+const CL = D.classes, NC = CL.length, ESC = D.meta.escala;
+const MES = D.meta.meses, NM = MES.length;
+const NOMEMES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+let mi = NM - 1, ufSel = null;
+
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+/* Texto sobre a cor da classe. A escolha é pela LUMINÂNCIA, não pelo
+   índice: a paleta do Monitor vai de amarelo claro (S0) a vinho
+   escuro (S4), e um limiar por número erra justamente no S3, que é
+   vermelho forte — texto escuro sobre ele fica ilegível na classe
+   que mais precisa ser lida. */
+function tinta(hex){
+  const v = i => {
+    const c = parseInt(hex.slice(1+i*2, 3+i*2), 16)/255;
+    return c <= 0.03928 ? c/12.92 : Math.pow((c+0.055)/1.055, 2.4);
+  };
+  const lum = 0.2126*v(0) + 0.7152*v(1) + 0.0722*v(2);
+  return lum > 0.35 ? '#1A1815' : '#FFFFFF';
+}
+const fmt = n => n.toLocaleString('pt-BR');
+const rotuloMes = s => {const [a,m] = s.split('-'); return NOMEMES[+m-1] + '/' + a;};
+const BB = D.meta.bbox;                       // [w,s,e,n]
+const LIM = L.latLngBounds([BB[1],BB[0]], [BB[3],BB[2]]);
+
+/* ------------------------------------------------------------------
+   Mapa. Renderizador de CANVAS, não SVG: o mês tem até seis feições
+   com milhares de vértices, e arrastar o cursor do tempo redesenha o
+   mapa a cada passo. Em SVG o navegador recria um nó por polígono e
+   o arrasto engasga.
+------------------------------------------------------------------ */
+/* `minZoom` e `maxZoom` são explícitos por necessidade, não por gosto.
+   Sem eles o Leaflet deixa `getMaxZoom()` em null e o limitador
+   interno faz `Math.min(null, z)` — que em JavaScript devolve 0. O
+   mapa nasce travado no zoom mundial, mostrando o oceano inteiro e
+   nenhum polígono, sem erro no console. O primeiro enquadramento
+   também vai sem animação: animado, ele é abortado antes de concluir
+   e a vista volta ao zoom 0. */
+const mapa = L.map('map', {
+  renderer: L.canvas({padding:0.3}),
+  preferCanvas: true,
+  zoomControl: true,
+  attributionControl: true,
+  minZoom: 3,
+  maxZoom: 10,
+/* Uma vista de partida é obrigatória: sem centro e zoom o Leaflet
+   recusa `invalidateSize` e a adição de camadas com "Set map center
+   and zoom first". O enquadramento fino vem logo abaixo. */
+}).setView(LIM.getCenter(), 4);
+mapa.attributionControl.setPrefix('');
+
+/* O enquadramento não pode acontecer na construção. O mapa vive numa
+   célula de grade cuja largura só existe depois do primeiro layout, e
+   as fontes da web ainda estão carregando; medido aqui, o container
+   dá largura zero e o `fitBounds` devolve limites degenerados — oeste
+   igual a leste — deixando a tela vazia sem erro nenhum.
+
+   O ResizeObserver resolve os dois casos com o mesmo mecanismo: o
+   primeiro enquadramento e qualquer mudança de largura depois (girar
+   o tablet, abrir o painel lado a lado com outra janela). */
+let enquadrou = false;
+function enquadra(forcar){
+  if(!mapa.getContainer().clientWidth) return;
+  mapa.invalidateSize({animate:false});
+  if(!enquadrou || forcar){ mapa.fitBounds(LIM, {animate:false}); enquadrou = true; }
+}
+new ResizeObserver(() => enquadra()).observe(document.getElementById('map'));
+mapa.attributionControl.addAttribution(D.meta.fonte);
+
+/* Base cartográfica OPCIONAL e desligada por padrão. O painel circula
+   por anexo e pendrive e precisa abrir sem rede; além disso, ligar
+   azulejo faz o navegador de quem abre o arquivo pedir imagem a um
+   terceiro, o que nem sempre é aceitável dentro da empresa. Os
+   contornos estaduais já orientam a leitura. */
+const base = L.tileLayer(
+  'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+  {maxZoom:10, attribution:'CARTO / OpenStreetMap'});
+
+const anelParaLatLng = r => {
+  const c = [];
+  for(let i=0; i<r.length; i+=2) c.push([r[i+1]/ESC, r[i]/ESC]);
+  return c;
+};
+
+const camadaSeca = L.layerGroup().addTo(mapa);
+const camadaUF = L.layerGroup().addTo(mapa);
+const camadaAtivos = L.layerGroup().addTo(mapa);
+
+/* Contornos estaduais: desenhados uma vez, só o estilo muda. */
+const polUF = {};
+for(const u of D.contorno){
+  polUF[u.uf] = L.polygon(u.r.map(anelParaLatLng), {
+    fill:false, color:css('--rule'), weight:0.8, interactive:true
+  }).bindTooltip(D.uf[u.uf] ? D.uf[u.uf].nome : u.uf, {sticky:true})
+    .on('click', () => { ufSel = (ufSel === u.uf) ? null : u.uf; atualiza(); })
+    .addTo(camadaUF);
+}
+
+let polSeca = [];
+function desenhaSeca(){
+  camadaSeca.clearLayers(); polSeca = [];
+  /* Os polígonos são ANINHADOS: `si` contém todas as classes, `s0`
+     contém S0 e piores. Adicionar do menos para o mais severo faz o
+     pintor resolver o recorte, sem subtrair polígono, e ainda deixa
+     o clique acertar a classe mais severa — que é a de cima. */
+  for(const c of D.geo[mi]){
+    const p = L.polygon(c.r.map(anelParaLatLng), {
+      stroke:false, fillColor:CL[c.c].cor, fillOpacity:1,
+    }).bindTooltip(CL[c.c].rotulo, {sticky:true});
+    p.addTo(camadaSeca); polSeca.push(p);
+  }
+  camadaUF.eachLayer(l => l.bringToFront());
+  camadaAtivos.eachLayer(l => l.bringToFront());
+}
+
+const marcAtivo = {};
+for(const a of D.ativos){
+  marcAtivo[a.id] = L.circleMarker([a.lat, a.lon], {radius:6, weight:2})
+    .on('click', () => { ufSel = a.uf; atualiza(); })
+    .addTo(camadaAtivos);
+}
+function estilizaAtivos(){
+  for(const a of D.ativos){
+    const n = a.s[mi], m = marcAtivo[a.id];
+    let k = mi; while(k > 0 && a.s[k-1] === n) k--;
+    const meses = mi - k + 1;
+    m.setStyle({
+      fillColor: n < 0 ? 'transparent' : CL[n].cor,
+      fillOpacity: n < 0 ? 0 : 1,
+      /* Fora da área monitorada leva traço interrompido, não a cor de
+         "sem seca". Desenhar as duas iguais apaga a distinção — e até
+         2023 ela vale para metade do país. */
+      dashArray: n < 0 ? '2,2' : null,
+      color: n >= D.limiar_alerta ? css('--hot') : css('--ink'),
+    });
+    m.bindPopup(`<b>${a.nome}</b><br>${a.uf} · ${rotuloMes(MES[mi])}<br>`
+      + (n < 0 ? 'fora da área monitorada' : CL[n].rotulo)
+      + `<br><span style="color:${css('--muted')}">há ${meses} `
+      + (meses > 1 ? 'meses' : 'mês') + ' nesta classe</span>');
+  }
+}
+
+L.control.layers(null, {
+  'Seca': camadaSeca, 'Estados': camadaUF, 'Ativos': camadaAtivos,
+  'Base cartográfica (rede)': base,
+}, {collapsed:false, position:'topright'}).addTo(mapa);
+
+function ajustaCanvas(cv, alt){
+  const r = window.devicePixelRatio || 1;
+  const w = cv.clientWidth;
+  if(alt) cv.style.height = alt + 'px';
+  const h = cv.clientHeight;
+  cv.width = Math.round(w*r); cv.height = Math.round(h*r);
+  const x = cv.getContext('2d'); x.setTransform(r,0,0,r,0,0);
+  return [x, w, h];
+}
+
+/* ---------------- cursor do tempo ---------------- */
+function desenhaTempo(){
+  const cv = document.getElementById('tcanvas');
+  const [x,w,h] = ajustaCanvas(cv);
+  x.clearRect(0,0,w,h);
+  const pb = 15, pt = 3, ph = h - pb - pt;
+  const maxA = Math.max(...D.nacional.map(d => d.extensao));
+  const bw = w / NM;
+
+  /* A pilha inteira é a ÁREA MONITORADA, com `si` na base. Mostra de
+     uma vez a composição da seca e a expansão da cobertura — de 1,59
+     para 8,61 milhões de km². Sem a segunda, um mês antigo com pouca
+     seca parece calmaria, quando o Monitor só olhava o Nordeste. */
+  for(let m=0; m<NM; m++){
+    let y = h - pb;
+    for(let c=0; c<NC; c++){
+      const v = D.nacional[m].km2[c]; if(!v) continue;
+      const dh = v/maxA*ph;
+      x.fillStyle = CL[c].cor;
+      x.fillRect(m*bw, y-dh, Math.ceil(bw)+0.5, dh);
+      y -= dh;
+    }
+  }
+  x.strokeStyle = css('--rule'); x.lineWidth = 1;
+  x.beginPath(); x.moveTo(0,h-pb); x.lineTo(w,h-pb); x.stroke();
+
+  x.font = '9.5px ' + css('--mono'); x.fillStyle = css('--muted');
+  x.textAlign = 'center';
+  for(let m=0; m<NM; m++){
+    const [a,mm] = MES[m].split('-');
+    if(mm === '01'){
+      x.fillText(a, m*bw + bw/2, h-4);
+      x.globalAlpha = .35; x.beginPath();
+      x.moveTo(m*bw, pt); x.lineTo(m*bw, h-pb); x.stroke(); x.globalAlpha = 1;
+    }
+  }
+  x.fillStyle = css('--hot');
+  x.fillRect(mi*bw - 0.5, pt, Math.max(1.6, bw), ph);
+  x.globalAlpha = .25; x.fillRect(mi*bw, pt, Math.ceil(bw), ph);
+  x.globalAlpha = 1;
+}
+
+function mesDoX(cx){
+  const r = document.getElementById('tcanvas').getBoundingClientRect();
+  return Math.max(0, Math.min(NM-1, Math.floor((cx - r.left)/r.width*NM)));
+}
+
+/* ---------------- estados ---------------- */
+let linhasUF = [];
+function desenhaUF(){
+  linhasUF = Object.entries(D.uf).map(([u,d]) => {
+    const a = d.km2[mi], tot = a.reduce((s,v)=>s+v,0);
+    const seca = a.slice(1).reduce((s,v)=>s+v,0);
+    return {uf:u, nome:d.nome, tot, frac: tot ? seca/tot : 0, a};
+  }).filter(r => r.tot > 0).sort((p,q) => q.frac - p.frac);
+
+  const cv = document.getElementById('ufc');
+  const lh = 15, alt = linhasUF.length*lh + 6;
+  const [x,w,h] = ajustaCanvas(cv, alt);
+  x.clearRect(0,0,w,h);
+  const x0 = 30, x1 = w - 40;
+
+  linhasUF.forEach((r,i) => {
+    const y = i*lh + 3;
+    x.font = '10px ' + css('--mono');
+    x.fillStyle = (ufSel === r.uf) ? css('--ink') : css('--muted');
+    x.textAlign = 'left'; x.fillText(r.uf, 0, y+9);
+
+    /* Barra empilhada por classe, não barra única: duas UFs com 60%
+       de área seca são situações diferentes se numa é tudo S0 e na
+       outra há S3. */
+    let px = x0;
+    for(let c=1; c<NC; c++){
+      const v = r.a[c]; if(!v) continue;
+      const dw = v/r.tot*(x1-x0);
+      x.fillStyle = CL[c].cor; x.fillRect(px, y, dw, lh-4); px += dw;
+    }
+    x.strokeStyle = (ufSel === r.uf) ? css('--ink') : css('--rule-soft');
+    x.lineWidth = (ufSel === r.uf) ? 1.5 : 1;
+    x.strokeRect(x0, y, x1-x0, lh-4);
+    x.font = '10px ' + css('--mono'); x.fillStyle = css('--ink-2');
+    x.textAlign = 'right';
+    x.fillText((r.frac*100).toFixed(0)+'%', w, y+9);
+  });
+  cv.onclick = e => {
+    const r = cv.getBoundingClientRect();
+    const l = linhasUF[Math.floor((e.clientY - r.top)/lh)];
+    ufSel = (l && ufSel !== l.uf) ? l.uf : null;
+    atualiza();
+  };
+}
+
+/* ---------------- ativos ---------------- */
+function tabela(){
+  let html = '<tr><th>Ativo</th><th>UF</th><th>Classe</th><th>Desde</th></tr>';
+  const ats = D.ativos.slice().sort((p,q) => q.s[mi] - p.s[mi]);
+  for(const a of ats){
+    const n = a.s[mi];
+    /* Há quanto tempo está nesta classe. Estado sem duração não diz
+       se é sobressalto do mês ou seca que se arrasta — que é a
+       diferença entre acompanhar e agir. */
+    let k = mi; while(k > 0 && a.s[k-1] === n) k--;
+    const meses = mi - k + 1;
+    /* As cores das classes são fixas e claras (menos S4), então o
+       texto não pode herdar a cor do tema: em modo escuro sairia
+       claro sobre claro. */
+    const est = n < 0
+      ? 'background:transparent;border-style:dashed;color:var(--muted)'
+      : `background:${CL[n].cor};color:${tinta(CL[n].cor)}`;
+    const rot = n < 0 ? 'fora do mapa' : CL[n].rotulo;
+    const cls = [n >= D.limiar_alerta ? 'alerta' : '',
+                 ufSel === a.uf ? 'sel' : ''].join(' ');
+    html += `<tr class="${cls}" data-id="${a.id}">
+      <td>${a.nome}</td><td class="n">${a.uf}</td>
+      <td><span class="pil" style="${est}">${rot}</span></td>
+      <td class="n">${meses} ${meses>1?'meses':'mês'}</td></tr>`;
+  }
+  const t = document.getElementById('tab');
+  t.innerHTML = html;
+  t.querySelectorAll('tr[data-id]').forEach(tr => {
+    tr.style.cursor = 'pointer';
+    tr.onclick = () => {
+      const a = D.ativos.find(z => z.id === tr.dataset.id);
+      mapa.setView([a.lat, a.lon], Math.max(mapa.getZoom(), 6));
+      marcAtivo[a.id].openPopup();
+    };
+  });
+  document.getElementById('atsub').textContent =
+    ufSel ? ufSel + ' selecionado — clique de novo para limpar'
+          : `${D.ativos.length} ativos`;
+}
+
+function kpis(){
+  const n = D.nacional[mi];
+  const tot = n.km2.reduce((s,v)=>s+v,0);
+  const seca = n.km2.slice(1).reduce((s,v)=>s+v,0);
+  const grave = n.km2.slice(3).reduce((s,v)=>s+v,0);
+  const est = D.ativos.map(a => a.s[mi]);
+  const fora = est.filter(v => v < 0).length;
+  const cards = [
+    ['Ativos em seca', est.filter(v => v >= 1).length,
+     `de ${est.length - fora} monitorados`],
+    ['Em alerta', est.filter(v => v >= D.limiar_alerta).length,
+     `S${D.limiar_alerta-1} ou pior`],
+    ['Fora do mapa', fora, fora ? 'não é ausência de seca' : 'todos monitorados'],
+    ['Área sob seca', (seca/tot*100).toFixed(0)+'%',
+     fmt(Math.round(seca))+' km² de '+fmt(tot)],
+    ['Seca grave ou pior', (grave/tot*100).toFixed(1)+'%', 'S2 a S4'],
+  ];
+  document.getElementById('kpis').innerHTML = cards.map(([r,v,s]) =>
+    `<div class="kpi"><div class="mono">${r}</div>
+     <div class="v">${v}</div><div class="s">${s}</div></div>`).join('');
+}
+
+/* ---------------- ciclo ---------------- */
+function atualiza(){
+  document.getElementById('mesAtual').textContent = rotuloMes(MES[mi]);
+  const n = D.nacional[mi];
+  document.getElementById('mapsub').textContent =
+    'área monitorada ' + fmt(n.extensao) + ' km²';
+  const pct = n.extensao / Math.max(...D.nacional.map(d=>d.extensao));
+  document.getElementById('notaExt').textContent = pct < 0.98
+    ? `Em ${rotuloMes(MES[mi])} o Monitor cobria ${fmt(n.extensao)} km², `
+      + `${(pct*100).toFixed(0)}% da extensão atual. O que está vazio dentro `
+      + `do contorno não é área sem seca — é área que não era observada.`
+    : 'Cobertura nacional. Branco dentro do contorno é área monitorada sem seca.';
+
+  desenhaSeca(); estilizaAtivos();
+  for(const u in polUF) polUF[u].setStyle({
+    color: ufSel === u ? css('--ink') : css('--rule'),
+    weight: ufSel === u ? 2.2 : 0.8,
+  });
+  desenhaTempo(); desenhaUF(); tabela(); kpis();
+}
+
+function vaiPara(m){ mi = Math.max(0, Math.min(NM-1, m)); atualiza(); }
+
+const tcv = document.getElementById('tcanvas');
+let arrastaT = false;
+tcv.addEventListener('pointerdown', e => {
+  arrastaT = true; tcv.setPointerCapture(e.pointerId); vaiPara(mesDoX(e.clientX));
+});
+tcv.addEventListener('pointermove', e => { if(arrastaT) vaiPara(mesDoX(e.clientX)); });
+tcv.addEventListener('pointerup', () => arrastaT = false);
+addEventListener('keydown', e => {
+  if(e.target.tagName === 'INPUT') return;
+  if(e.key === 'ArrowRight') vaiPara(mi+1);
+  if(e.key === 'ArrowLeft') vaiPara(mi-1);
+});
+document.getElementById('reset').onclick = () => {
+  ufSel = null; enquadra(true); atualiza();
+};
+
+document.getElementById('leg').innerHTML = CL.map(c =>
+  `<span class="lg"><span class="sw" style="background:${c.cor}"></span>${c.rotulo}</span>`
+).join('') + `<span class="lg"><span class="sw" style="background:transparent;
+  border-style:dashed"></span>ativo fora da área monitorada</span>`;
+document.getElementById('fonte').textContent = D.meta.fonte;
+document.getElementById('stamp').textContent =
+  'gerado ' + D.meta.gerado_em.slice(0,10) + ' · ' + NM + ' meses';
+
+/* O canvas grava a cor do tema no momento em que desenha; trocar de
+   claro para escuro sem redesenhar deixa traço e texto na cor antiga.
+   Não há evento de "tema mudou", então se observa a consulta de mídia. */
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', atualiza);
+addEventListener('resize', () => { desenhaTempo(); desenhaUF(); });
+
+atualiza();
+</script>
