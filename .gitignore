@@ -1,0 +1,17 @@
+# Os dados ficam fora do repositorio. A lista opera por LIBERACAO:
+# ignora tudo e libera por extensao, com excecoes nominais, para que
+# um formato novo no acervo nao entre sem aviso.
+*
+!*/
+!*.py
+!*.md
+!*.txt
+!.gitignore
+
+# nunca, mesmo que a extensao libere
+dados/
+__pycache__/
+*.pyc
+
+# gabarito da base de ativos; a base real fica fora
+!exemplo_ativos.csv

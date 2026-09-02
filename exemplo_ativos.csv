@@ -1,0 +1,11 @@
+id,nome,uf,longitude,latitude
+AT-001,Unidade Fortaleza,CE,-38.54,-3.72
+AT-002,Unidade Recife,PE,-34.88,-8.05
+AT-003,Unidade Salvador,BA,-38.51,-12.97
+AT-004,Unidade Brasilia,DF,-47.93,-15.78
+AT-005,Unidade Sao Paulo,SP,-46.63,-23.55
+AT-006,Unidade Cuiaba,MT,-56.10,-15.60
+AT-007,Unidade Porto Alegre,RS,-51.23,-30.03
+AT-008,Unidade Manaus,AM,-60.02,-3.10
+AT-009,Unidade Belo Horizonte,MG,-43.94,-19.92
+AT-010,Unidade Campo Grande,MS,-54.65,-20.44
