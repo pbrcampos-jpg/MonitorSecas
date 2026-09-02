@@ -5,9 +5,13 @@ com ativos da empresa, integrando dados de órgãos oficiais,
 sobrepondo a localização dos ativos e entregando métricas, série
 histórica e detecção de mudança de classe.
 
-Reaproveita o motor de aquisição, a atribuição ativo × polígono e a
-disciplina de auditoria do estudo de risco climático da Via Raposo
-(SP-270).
+Estudo próprio, com objeto e recorte próprios. Toma como **referência
+técnica** um estudo anterior de risco climático — a Via Raposo
+(SP-270) — do qual se reaproveitam três coisas já resolvidas: o motor
+de aquisição, a atribuição ativo × polígono e a disciplina de
+auditoria. O objeto lá era um corredor rodoviário contínuo num estado;
+aqui são ativos dispersos por vários estados, e a única herança é o
+método.
 
 ---
 
@@ -125,13 +129,14 @@ O que foi verificado em cada portal, com os números medidos, está em
 
 ## Uma observação de método
 
-Este módulo nasce de um estudo em que **sete erros foram encontrados
-por verificação, não por falha de execução**: deslocamento de
-calendário em anos bissextos, um modelo publicado em duas grades com
-diferença de até 6,35 °C, um ano inteiro de memória não inicializada,
-cenário truncado, oceano retornando zero e derrubando a média para
-205 K, máscara aplicada depois da reamostragem, e uma grade fantasma
-nascida de eixos diferentes na quarta casa decimal.
+A lição vem do estudo tomado como referência, em que **sete erros
+foram encontrados por verificação, não por falha de execução**:
+deslocamento de calendário em anos bissextos, um modelo publicado em
+duas grades com diferença de até 6,35 °C, um ano inteiro de memória
+não inicializada, cenário truncado, oceano retornando zero e
+derrubando a média para 205 K, máscara aplicada depois da
+reamostragem, e uma grade fantasma nascida de eixos diferentes na
+quarta casa decimal.
 
 Todos produziam número plausível. Nenhum levantava exceção.
 
